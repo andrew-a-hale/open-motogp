@@ -86,6 +86,7 @@ def tasks() -> List:
 
 
 async def main():
+    raise NotImplementedError()
     logger = logging.getLogger("scraper")
     logger.info("started")
     conn = setup_db(fresh=True)
