@@ -6,7 +6,7 @@ from typing import List
 
 import httpx
 
-from database import setup_db
+from database import setup_db, export_to_csv
 from model import Record
 from requests import exceptions
 from endpoints import (
@@ -86,7 +86,6 @@ def tasks() -> List:
 
 
 async def main():
-    raise NotImplementedError()
     logger = logging.getLogger("scraper")
     logger.info("started")
     conn = setup_db(fresh=True)
@@ -105,20 +104,7 @@ async def main():
         c.cancel()
 
     # export
-    conn.execute(
-        """\
-COPY (
-    SELECT
-        season_year,
-        event_short_name,
-        category_name,
-        session_name,
-        rider_name,
-        rider_position,
-        rider_points
-    FROM records
-) TO 'output.csv'"""
-    )
+    export_to_csv(conn)
 
     logger.info("finished")
 

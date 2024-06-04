@@ -49,9 +49,26 @@ def get_session_status(session_id: str, conn: duckdb.DuckDBPyConnection) -> str:
 def update_session_status(session_id: str, conn: duckdb.DuckDBPyConnection) -> str:
     return conn.execute(
         """\
-INSERT INTO sessions (id, status)
-VALUES (?, 'COMPLETED')
+INSERT INTO sessions (id, status, attempt)
+VALUES (?, 'COMPLETED', 0)
 ON CONFLICT
 DO UPDATE SET attempt = attempt + 1""",
         [session_id],
     ).fetchone()
+
+
+def export_to_csv(conn):
+    conn.execute(
+        """\
+COPY (
+    SELECT
+        season_year,
+        event_short_name,
+        category_name,
+        session_name,
+        rider_name,
+        rider_position,
+        rider_points
+    FROM records
+) TO 'output.csv'"""
+    )
