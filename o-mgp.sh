@@ -7,21 +7,24 @@ set -e
 # Session: https://api.pulselive.motogp.com/motogp/v1/results/sessions?eventUuid={event}&categoryUuid={category}
 # Classification: https://api.pulselive.motogp.com/motogp/v1/results/session/{session}/classification?test=false
 
+# STYLING
 export GUM_FILTER_SELECTED_PREFIX_FOREGROUND="124"
 export GUM_FILTER_PROMPT_FOREGROUND="124"
 export GUM_FILTER_INDICATOR_FOREGROUND="124"
 export GUM_FILTER_MATCH_FOREGROUND="124"
 export GUM_SPIN_SPINNER_FOREGROUND="124"
 
+# Welcome Splash
 clear
 gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
 "Welcome to $(gum style --foreground 124 'Open MotoGP')."
 
 sleep 1
 
+# Season Selection
 get_years() {
     YEARS=$(curl -s "https://api.pulselive.motogp.com/motogp/v1/results/seasons" | jq -c '.[] | {year: .year, id: .id}')
-    if [[ $(wc -l <<< $YEARS) -lt 2 && $(wc -w <<< $YEARS) -eq 0 ]]
+    if [[ $(wc -w <<< $YEARS) -eq 0 ]]
     then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
         "ERROR: Found no seasons!"
@@ -37,9 +40,10 @@ YEAR=$(echo $YEARS | jq -s '.[] | .year' | gum filter --height 10 --placeholder 
 YEAR_ID=$(echo $YEARS | jq -s --argjson Y "$YEAR" '.[] | select(.year==$Y) | .id' | tr -d \")
 gum style --foreground 124 "$YEAR"
 
+# Event Selection
 get_events() {
     EVENTS=$(curl -s "https://api.pulselive.motogp.com/motogp/v1/results/events?seasonUuid=$YEAR_ID&isFinished=true" | jq -c '.[] | {name: .name, sname: .short_name, id: .id}')
-    if [[ $(wc -l <<< $EVENTS) -lt 2 && $(wc -w <<< $EVENTS) -eq 0 ]]
+    if [[ $(wc -w <<< $EVENTS) -eq 0 ]]
     then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
         "ERROR: Found no events!"
@@ -56,9 +60,10 @@ EVENT_ID=$(echo $EVENTS | jq -s --arg E "$EVENT" '.[] | select(.name==$E) | .id'
 EVENT_SHORT=$(echo $EVENTS | jq -s --arg E "$EVENT" '.[] | select(.name==$E) | .sname' | tr -d \")
 gum style --foreground 124 "$EVENT"
 
+# Category Selection
 get_categories() {
     CATEGORIES=$(curl -s "https://api.pulselive.motogp.com/motogp/v1/results/categories?eventUuid=$EVENT_ID" | jq -c '.[] | {name: (.name | match("^[[:alnum:]]+"; "g").string), id: .id}')
-    if [[ $(wc -l <<< $CATEGORIES) -lt 2 && $(wc -w <<< $CATEGORIES) -eq 0 ]]
+    if [[ $(wc -w <<< $CATEGORIES) -eq 0 ]]
     then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
         "ERROR: Found no categories!"
@@ -74,9 +79,10 @@ CATEGORY=$(echo $CATEGORIES | jq -s '.[] | .name' | tr -d \" | gum filter --heig
 CATEGORY_ID=$(echo $CATEGORIES | jq -s --arg C "$CATEGORY" '.[] | select(.name==$C) | .id' | tr -d \")
 gum style --foreground 124 "$CATEGORY"
 
+# Session Selection
 get_sessions() {
     SESSIONS=$(curl -s "https://api.pulselive.motogp.com/motogp/v1/results/sessions?eventUuid=$EVENT_ID&categoryUuid=$CATEGORY_ID" | jq -c '.[] | {name: (.type + (.number // "" | tostring)), id: .id}')
-    if [[ $(wc -l <<< $SESSIONS) -lt 2 && $(wc -w <<< $SESSIONS) -eq 0 ]]
+    if [[ $(wc -w <<< $SESSIONS) -eq 0 ]]
     then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
         "ERROR: Found no sessions!"
@@ -92,6 +98,7 @@ SESSION=$(echo $SESSIONS | jq -s '.[] | .name' | tr -d \" | gum filter --height 
 SESSION_ID=$(echo $SESSIONS | jq -s --arg S "$SESSION" '.[] | select(.name==$S) | .id' | tr -d \")
 gum style --foreground 124 "$SESSION"
 
+# Export Classification Data
 FILENAME="$YEAR"_"$EVENT_SHORT"_"$CATEGORY"_"$SESSION".csv
 export_classification() {
     echo "name,pos,pts" > $FILENAME

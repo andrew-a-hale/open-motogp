@@ -57,18 +57,30 @@
 
 Output demo.gif
 
-Require echo
-
-Set Shell "bash"
+Set Shell "zsh"
 Set FontSize 26
 Set Width 1200
 Set Height 1200
 
-Type "./open-mpg.sh" Enter Sleep 2.5
-Enter Sleep 2.5
-Enter Sleep 2.5
-Enter Sleep 2.5
-Enter Sleep 2.5
-Enter Sleep 2.5
+Hide
+Type "./o-mgp.sh" Enter
+Show
+Sleep 3 
 
-Sleep 5s
+Type@500ms "1950" Sleep 1
+Backspace 4 Sleep 1
+Type@500ms "202" Sleep 1
+Enter Sleep 3
+
+Type@500ms "fra" Sleep 1
+Down Sleep 1
+Up Sleep 1
+Enter Sleep 3
+
+Down Sleep 1
+Down Sleep 1
+Up Sleep 1
+Enter Sleep 3
+
+Type@500ms "rac" Sleep 1
+Enter Sleep 5
