@@ -8,7 +8,8 @@ The `open-mpg.sh` script is a simple CLI App to simpify downloading the classifi
 
 1. Must allow executable permission for the script with `chmod +x open-mpg.sh`.
 2. Install `gum`. See [here](https://github.com/charmbracelet/gum?tab=readme-ov-file#installation) for details.
-3. Run `./o-mgp.sh`
+3. Install `jq`.
+4. Run `./o-mgp.sh`
 
 ### Demo
 
