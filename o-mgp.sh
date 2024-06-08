@@ -28,7 +28,8 @@ do
     # Season Selection
     get_years() {
         YEARS=$(curl -s "https://api.pulselive.motogp.com/motogp/v1/results/seasons" | jq -c '.[] | {year: .year, id: .id}')
-        if test $(wc -w <<< $YEARS) -eq 0; then
+        if [[ $(wc -w <<< $YEARS) -eq 0 ]]
+        then
             gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
             "ERROR: Found no seasons!"
             exit 1
@@ -109,7 +110,8 @@ do
         | jq '.classification | .[] | {name: .rider.full_name, pos: .position, pts: .points}' \
         | jq -r '"\(.name),\(.pos),\(.pts)"' >> $FILENAME
 
-        if test $(wc -l < $FILENAME) -eq 1; then
+        if [[ $(wc -l < $FILENAME) -eq 1 ]]
+        then
             gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
             "ERROR: Found no classification data!"
             rm $FILENAME
@@ -121,14 +123,14 @@ do
     "Exporting Classification to $FILENAME"
     gum spin --spinner dot --title "Getting Classification..." -- sleep 1 ; export_classification
 
-    if gum confirm "Would you like to make another request?"; then
+    if test gum confirm "Would you like to make another request?"; then
         continue
     elif test $? -eq 1; then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
         "Thank you for using $(gum style --foreground 124 'Open MotoGP')."
-        exit 0
+        exit 1
     else
-        exit 0
+        exit 130
     fi
 
 done
