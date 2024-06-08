@@ -1,5 +1,6 @@
 from typing import Iterable
 import httpx
+import functools
 from model import Season, Event, Category, Session, RiderResult
 
 # get year, event, category, sessions, and classification
@@ -31,6 +32,7 @@ def get_events(season_id: str) -> Iterable[Event]:
     return [Event.from_req(e) for e in events]
 
 
+@functools.cache
 def get_categories(event_id: str) -> Iterable[Category]:
     res = httpx.get(CATEGORIES_ENDPOINT_TEMPL.format(event=event_id))
     res.raise_for_status()
