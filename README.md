@@ -141,7 +141,7 @@ This one returns a lot of data as well... I've omitted most.
 ## TODO
 
 - Finish Async Implementation
-- Optimise category endpoint calls with caching
 - Data Modelling
 - Rewrite in Go
 - OpenAPI Docs
+- CLI App output data format

@@ -123,7 +123,7 @@ do
     "Exporting Classification to $FILENAME"
     gum spin --spinner dot --title "Getting Classification..." -- sleep 1 ; export_classification
 
-    if test gum confirm "Would you like to make another request?"; then
+    if gum confirm "Would you like to make another request?" ; then
         continue
     elif test $? -eq 1; then
         gum style --border normal --margin "1" --padding "1 2" --border-foreground 124 \
@@ -132,5 +132,4 @@ do
     else
         exit 130
     fi
-
 done

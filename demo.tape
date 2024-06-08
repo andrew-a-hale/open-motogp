@@ -68,7 +68,7 @@ Show
 Sleep 3 
 
 Type@500ms "1950" Sleep 1
-Backspace 4 Sleep 1
+Backspace@500ms 4 Sleep 1
 Type@500ms "202" Sleep 1
 Enter Sleep 3
 
@@ -83,4 +83,7 @@ Up Sleep 1
 Enter Sleep 3
 
 Type@500ms "rac" Sleep 1
+Enter Sleep 3
+
+Right Sleep 1
 Enter Sleep 5
