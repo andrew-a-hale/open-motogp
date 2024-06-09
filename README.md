@@ -2,7 +2,7 @@
 
 ## CLI App
 
-The `open-mpg.sh` script is a simple CLI App to simpify downloading the classification for a single race.
+The `o-mgp.sh` script is a simple CLI App to simpify downloading the classification for a single race.
 
 ### Getting Started
 
