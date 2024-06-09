@@ -13,7 +13,7 @@ The `o-mgp.sh` script is a simple CLI App to simpify downloading the classificat
 
 ### Demo
 
-![demo](demo.gif)
+![demo](assets/demo.gif)
 
 ## Endpoints
 
@@ -142,6 +142,5 @@ This one returns a lot of data as well... I've omitted most.
 
 - Finish Async Implementation
 - Data Modelling
-- Rewrite in Go
-- OpenAPI Docs
-- CLI App output data format
+  - CLI App output data format
+- Build API

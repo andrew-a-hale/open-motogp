@@ -6,4 +6,8 @@ lib
 lib64
 pyenv.cfg
 *.db
+*.parquet
 *.log
+.pytest_cache
+.env
+motogp.egg-info
