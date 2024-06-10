@@ -6,9 +6,13 @@ import uuid
 import httpx
 
 from motogp.database import setup_duckdb
-from motogp.model import Task, TaskQueue, TaskStatus
+from motogp.model import Task, TaskStatus
 from motogp.endpoints import (
-    get_classification,
+    async_get_categories,
+    async_get_classification,
+    async_get_events,
+    async_get_seasons,
+    async_get_sessions,
     get_seasons,
     get_events,
     get_categories,
@@ -42,7 +46,7 @@ async def consumer(queue: asyncio.Queue):
         )
 
         try:
-            classification = await get_classification(task)
+            classification = await async_get_classification(task)
         except httpx.HTTPStatusError as err:
             classification = None
             logger.error(f"http error: {err}")
@@ -60,8 +64,14 @@ async def consumer(queue: asyncio.Queue):
         queue.task_done()
 
 
-def load_queue(incremental: bool = True):
+async def async_load_queue(limit: int = 0, incremental: bool = True):
+    pass
+
+
+def load_queue(limit: int = 0, incremental: bool = True):
+    count = 0
     logger = setup_logger()
+
     for season in get_seasons(incremental):
         logger.info("enqueuing season: %s", season.year)
         for event in get_events(season.id, incremental):
@@ -69,13 +79,27 @@ def load_queue(incremental: bool = True):
             for category in get_categories(event.id):
                 logger.info("enqueuing category: %s", category.name)
                 for session in get_sessions(event.id, category.id):
+                    if limit > 0 and count >= limit:
+                        logger.info("load_queue hit limit: %s", limit)
+                        return None
+
                     logger.info("enqueuing session: %s", session.name)
                     season.sync()
                     event.sync()
                     category.sync()
                     session.sync()
-                    task = Task(uuid.uuid4(), season, event, category, session)
+                    task = Task(
+                        str(uuid.uuid4()),
+                        season.id,
+                        event.id,
+                        category.id,
+                        session.id,
+                    )
                     task.upsert_status(TaskStatus.NEW)
+                    count += 1
+                    logger.info(
+                        "load item: %s/%s", count, limit if limit > 0 else "inf"
+                    )
 
 
 def export_results():

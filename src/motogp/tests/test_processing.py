@@ -1,30 +1,41 @@
 import asyncio
-import os
-import uuid
 import pytest
-from motogp.model import Task, TaskQueue, TaskStatus
-from motogp.processing import consumer
-from motogp.endpoints import get_categories, get_seasons, get_events, get_sessions
+from motogp.model import TaskQueue, TaskStatus
+from motogp.processing import consumer, load_queue, async_load_queue
 from motogp.database import setup_duckdb, setup_sqlite
 
 
+# End-to-end Test
 class TestProcessing:
     queue = asyncio.Queue()
+
+    def test_load_queue(cls):
+        setup_duckdb(True)
+        setup_sqlite(True)
+
+        load_queue(1)
+
+        assert TaskQueue.from_db(TaskStatus.NEW).size == 1
+
+    @pytest.mark.asyncio
+    async def test_async_load_queue(cls):
+        raise NotImplementedError()
+        setup_duckdb(True)
+        setup_sqlite(True)
+
+        await async_load_queue(1)
+
+        assert TaskQueue.from_db(TaskStatus.NEW).size == 1
 
     @pytest.mark.asyncio
     async def test_processing(cls):
         setup_duckdb(True)
         setup_sqlite(True)
-        season = get_seasons()[0]
-        event = get_events(season.id)[0]
-        category = get_categories(event.id)[0]
-        session = get_sessions(event.id, category.id)[0]
-        task_id = str(uuid.uuid4())
-        task = Task(task_id, season.id, event.id, category.id, session.id)
-        task.upsert_status(TaskStatus.NEW)
 
-        for task in TaskQueue.from_db().tasks:
-            cls.queue.put_nowait(task)
+        await async_load_queue(1)
+
+        for task in TaskQueue.from_db(TaskStatus.NEW).tasks:
+            await cls.queue.put(task)
 
         consumers = [asyncio.create_task(consumer(cls.queue)) for _ in range(1)]
 

@@ -26,8 +26,8 @@ class TestSeason:
         cls.season.sync()
         assert Season.from_db(cls.season.id) == cls.season
 
-    def test_last_season_timestamp(_):
-        assert_type(Season.last_season_timestamp(), datetime.datetime)
+    def test_last_season_year(_):
+        assert_type(Season.last_season_year(), int)
 
 
 class TestEvent:
@@ -37,8 +37,8 @@ class TestEvent:
         cls.event.sync()
         assert Event.from_db(cls.event.id) == cls.event
 
-    def test_last_event_timestamp(_):
-        assert_type(Event.last_event_timestamp(), datetime.datetime)
+    def test_last_event_date(_):
+        assert_type(Event.last_event_date(), datetime.datetime)
 
 
 class TestCategory:
@@ -90,7 +90,7 @@ class TestTask:
 
     def test_task_queue_sync(cls):
         cls.task_queue.sync()
-        tq = TaskQueue.from_db()
+        tq = TaskQueue.from_db(TaskStatus.ERROR)
         assert tq.size == cls.task_queue.size
         assert tq.tasks == cls.task_queue.tasks
 
@@ -102,7 +102,7 @@ class TestClassification:
     session_id = "0"
     task_id = str(uuid.uuid4())
     task = Task(task_id, season_id, event_id, category_id, session_id)
-    rider = Rider("0", "test", "test", "test", 1)
+    rider = Rider("0", "test", "test", 1, "test")
     rider_result = RiderResult(rider, 1, 1)
     classification = Classification(
         season_id, event_id, category_id, session_id, [rider_result]

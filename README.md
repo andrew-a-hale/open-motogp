@@ -137,10 +137,3 @@ This one returns a lot of data as well... I've omitted most.
     ...
 }
 ```
-
-## TODO
-
-- Finish Async Implementation
-- Data Modelling
-  - CLI App output data format
-- Build API

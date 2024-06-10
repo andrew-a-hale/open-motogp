@@ -4,7 +4,9 @@ import sqlite3
 
 
 def setup_sqlite(refresh: bool = False):
-    conn = sqlite3.connect("processing.db")
+    test = True if os.getenv("MOTOGP_ENV").lower() == "test" else False
+    filename = "test-processing.db" if test else "processing.db"
+    conn = sqlite3.connect(filename)
 
     if refresh:
         refresh_sqlite(conn)
@@ -27,7 +29,9 @@ def refresh_sqlite(conn: sqlite3.Connection):
 
 
 def setup_duckdb(refresh: bool = False):
-    conn = duckdb.connect("motogp.db")
+    test = True if os.getenv("MOTOGP_ENV").lower() == "test" else False
+    filename = "test-motogp.db" if test else "motogp.db"
+    conn = duckdb.connect(filename)
 
     if refresh:
         refresh_duckdb(conn)
@@ -44,3 +48,7 @@ def refresh_duckdb(conn: duckdb.DuckDBPyConnection):
     for file in files:
         sql = open(path + "/duckdb/" + file).read()
         conn.execute(sql)
+
+if __name__ == "__main__":
+    setup_duckdb(True)
+    setup_sqlite(True)

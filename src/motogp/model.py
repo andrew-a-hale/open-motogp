@@ -16,17 +16,12 @@ class Season:
     year: int
 
     @staticmethod
-    def last_season_timestamp():
+    def last_season_year():
         conn = setup_duckdb()
-        res = conn.execute(
-            "SELECT MAX(timestamp) AS ts FROM dwh.dim_season"
-        ).fetchone()[0]
+        res = conn.execute("SELECT MAX(year) FROM dwh.dim_season").fetchone()[0]
         conn.close()
 
-        if res:
-            return res
-        else:
-            return datetime.datetime.min
+        return res if res else 1900
 
     @staticmethod
     def from_req(json: Dict):
@@ -62,17 +57,14 @@ class Event:
     end: datetime.date
 
     @staticmethod
-    def last_event_timestamp():
+    def last_event_date():
         conn = setup_duckdb()
         res = conn.execute(
-            "SELECT MAX(timestamp) AS ts FROM dwh.dim_event",
+            "SELECT MAX(date_start) FROM dwh.dim_event",
         ).fetchone()[0]
         conn.close()
 
-        if res:
-            return res
-        else:
-            return datetime.datetime.min
+        return res if res else datetime.date.min
 
     @staticmethod
     def from_req(json: Dict):
@@ -159,12 +151,7 @@ class Session:
     def from_req(json: Dict):
         type = json.get("type")
         number = json.get("number")
-
-        if number:
-            name = f"{type}{number}"
-        else:
-            name = type
-
+        name = f"{type}{number}" if number else type
         return Session(json.get("id"), name.lower())  # type: ignore
 
     @staticmethod
@@ -197,14 +184,14 @@ class Rider:
     id: str
     name: str
     country: str
-    team: str
     number: int
+    team: str
 
     @staticmethod
     def from_db(id: str):
         conn = setup_duckdb()
         res = conn.execute(
-            "SELECT id, name, country, team, number FROM dwh.dim_rider WHERE id = ?",
+            "SELECT id, name, country, number, team  FROM dwh.dim_rider WHERE id = ?",
             [id],
         ).fetchone()
         conn.close()
@@ -238,15 +225,19 @@ class RiderResult:
 
     @staticmethod
     def from_req(json: Dict):
+        team = ""
+        if json.get("team"):
+            team = json.get("team").get("name")
+
         rider = Rider(
             json.get("rider").get("id"),
             json.get("rider").get("full_name"),
             json.get("rider").get("country").get("name"),
-            json.get("team").get("name"),
             json.get("rider").get("number"),
+            team,
         )
         pos = json.get("position")
-        pts = json.get("point")
+        pts = json.get("points")
         return RiderResult(rider, pos, pts)
 
 
@@ -363,7 +354,6 @@ WHERE session_id = ?""",
         )
 
     def sync(self):
-        conn = setup_duckdb()
         rows = []
         for result in self.results:
             result.rider.sync()
@@ -379,14 +369,16 @@ WHERE session_id = ?""",
                 ]
             )
 
-        conn.executemany(
-            """\
-INSERT OR REPLACE INTO dwh.fct_classification (season_id, event_id, category_id, session_id, rider_id, position, points, timestamp)
-VALUES (?, ?, ?, ?, ?, ?, ?, current_timestamp)""",
-            rows,
-        )
-        conn.commit()
-        conn.close()
+        if rows:
+            conn = setup_duckdb()
+            conn.executemany(
+                """\
+    INSERT OR REPLACE INTO dwh.fct_classification (season_id, event_id, category_id, session_id, rider_id, position, points, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, get_current_timestamp())""",
+                rows,
+            )
+            conn.commit()
+            conn.close()
 
 
 @dataclass
@@ -433,8 +425,8 @@ SET status = :status, attempt = :attempt, updated_timestamp = current_timestamp"
         conn.close()
 
     @staticmethod
-    def from_db():
-        query = """\
+    def from_db(status_upper_bound: TaskStatus):
+        query = f"""\
 SELECT
     id,
     season_id,
@@ -444,7 +436,7 @@ SELECT
     status,
     attempt
 FROM tasks
-WHERE status < 2"""
+WHERE status <= {status_upper_bound.value}"""
 
         conn = setup_sqlite()
         res = conn.execute(query).fetchall()

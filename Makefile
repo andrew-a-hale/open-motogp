@@ -1,6 +1,11 @@
 test:
-	pytest --pyargs motogp -vv
+	MOTOGP_ENV=test pytest --pyargs motogp -vv
+	rm test-motogp.db test-processing.db
 run-inc:
-	python ./src/motogp/main.py inc
+	MOTOGP_ENV=dev python ./src/motogp/main.py 0 inc
 run-full:
-	python ./src/motogp/main.py full
+	MOTOGP_ENV=dev python ./src/motogp/database.py
+	MOTOGP_ENV=dev python ./src/motogp/main.py 0 full
+run-some:
+	MOTOGP_ENV=dev python ./src/motogp/main.py 10 inc
+
