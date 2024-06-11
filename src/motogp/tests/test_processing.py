@@ -1,7 +1,8 @@
 import asyncio
 import pytest
 from motogp.model import TaskQueue, TaskStatus
-from motogp.processing import consumer, load_queue, async_load_queue
+from motogp.consumer import consumer
+from motogp.producer import async_produce_tasks, produce_tasks
 from motogp.database import setup_duckdb, setup_sqlite
 
 
@@ -9,21 +10,23 @@ from motogp.database import setup_duckdb, setup_sqlite
 class TestProcessing:
     queue = asyncio.Queue()
 
-    def test_load_queue(cls):
+    def test_produce_tasks(cls):
         setup_duckdb(True)
         setup_sqlite(True)
 
-        load_queue(1)
+        produce_tasks(1)
 
         assert TaskQueue.from_db(TaskStatus.NEW).size == 1
 
     @pytest.mark.asyncio
-    async def test_async_load_queue(cls):
-        raise NotImplementedError()
+    async def test_async_produce_tasks(cls):
         setup_duckdb(True)
         setup_sqlite(True)
 
-        await async_load_queue(1)
+        try:
+            await async_produce_tasks(1)
+        except asyncio.LimitOverrunError as err:
+            pass
 
         assert TaskQueue.from_db(TaskStatus.NEW).size == 1
 
@@ -32,7 +35,7 @@ class TestProcessing:
         setup_duckdb(True)
         setup_sqlite(True)
 
-        await async_load_queue(1)
+        produce_tasks(1)
 
         for task in TaskQueue.from_db(TaskStatus.NEW).tasks:
             await cls.queue.put(task)

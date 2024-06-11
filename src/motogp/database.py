@@ -49,6 +49,8 @@ def refresh_duckdb(conn: duckdb.DuckDBPyConnection):
         sql = open(path + "/duckdb/" + file).read()
         conn.execute(sql)
 
-if __name__ == "__main__":
-    setup_duckdb(True)
-    setup_sqlite(True)
+
+def export_results():
+    conn = setup_duckdb()
+    conn.execute("copy dwh.vw_results to 'motogp.parquet' (FORMAT PARQUET)")
+    conn.close()

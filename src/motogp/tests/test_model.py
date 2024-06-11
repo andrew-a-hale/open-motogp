@@ -2,13 +2,13 @@ import datetime
 from typing import assert_type
 import uuid
 from motogp.model import (
-    Category,
-    Classification,
+    Season,
     Event,
+    Category,
+    Session,
+    Classification,
     Rider,
     RiderResult,
-    Season,
-    Session,
     Task,
     TaskStatus,
     TaskQueue,

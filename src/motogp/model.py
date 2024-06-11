@@ -425,8 +425,8 @@ SET status = :status, attempt = :attempt, updated_timestamp = current_timestamp"
         conn.close()
 
     @staticmethod
-    def from_db(status_upper_bound: TaskStatus):
-        query = f"""\
+    def from_db(status_upper_bound: TaskStatus, limit: int = None):
+        query = """\
 SELECT
     id,
     season_id,
@@ -436,10 +436,15 @@ SELECT
     status,
     attempt
 FROM tasks
-WHERE status <= {status_upper_bound.value}"""
+WHERE status <= :status_bound
+LIMIT :limit"""
 
         conn = setup_sqlite()
-        res = conn.execute(query).fetchall()
+        params = {
+            "status_bound": status_upper_bound.value,
+            "limit": limit if limit else 2**32,  # sqlite max
+        }
+        res = conn.execute(query, params).fetchall()
         conn.close()
 
         tasks = []

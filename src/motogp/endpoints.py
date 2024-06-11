@@ -34,24 +34,6 @@ def get_seasons(incremental: bool = True) -> List[Season]:
     return seasons
 
 
-async def async_get_seasons(incremental: bool = True) -> AsyncGenerator[any, Season]:
-    client = httpx.AsyncClient()
-    res = await client.get(SEASONS_ENDPOINT)
-    res.raise_for_status()
-    seasons = res.json()
-    assert len(seasons) > 0
-
-    seasons = [Season.from_req(s) for s in seasons]
-    seasons.sort(key=lambda x: x.year)
-    if incremental:
-        last_year = Season.last_season_year()
-        new_seasons = [x.id for x in seasons if x.year >= last_year]
-        seasons = [s for s in seasons if s.id in new_seasons]
-
-    for s in seasons:
-        yield s
-
-
 def get_events(season_id: str, incremental: bool = True) -> List[Event]:
     res = requests.get(EVENTS_ENDPOINT_TEMPL.format(season=season_id))
     res.raise_for_status()
@@ -68,26 +50,6 @@ def get_events(season_id: str, incremental: bool = True) -> List[Event]:
     return events
 
 
-async def async_get_events(
-    season_id: str, incremental: bool = True
-) -> AsyncGenerator[any, Event]:
-    client = httpx.AsyncClient()
-    res = await client.get(EVENTS_ENDPOINT_TEMPL.format(season=season_id))
-    res.raise_for_status()
-    events = res.json()
-    assert len(events) > 0
-
-    events = [Event.from_req(e) for e in events]
-    events.sort(key=lambda x: x.start)
-    if incremental:
-        ts = Event.last_event_timestamp()
-        new_events = [x.id for x in events if x.start >= ts.date()]
-        events = [e for e in events if e.id in new_events]
-
-    for e in events:
-        yield e
-
-
 @functools.cache
 def get_categories(event_id: str) -> List[Category]:
     res = requests.get(CATEGORIES_ENDPOINT_TEMPL.format(event=event_id))
@@ -95,18 +57,6 @@ def get_categories(event_id: str) -> List[Category]:
     categories = res.json()
     assert len(categories) > 0
     return [Category.from_req(c) for c in categories]
-
-
-@functools.cache
-async def async_get_categories(event_id: str) -> AsyncGenerator[any, Category]:
-    client = httpx.AsyncClient()
-    res = await client.get(CATEGORIES_ENDPOINT_TEMPL.format(event=event_id))
-    res.raise_for_status()
-    categories = res.json()
-    assert len(categories) > 0
-
-    for c in categories:
-        yield Category.from_req(c)
 
 
 def get_sessions(event_id: str, category_id: str) -> List[Session]:
@@ -122,7 +72,7 @@ def get_sessions(event_id: str, category_id: str) -> List[Session]:
 async def async_get_sessions(
     event_id: str, category_id: str
 ) -> AsyncGenerator[any, Session]:
-    client = httpx.AsyncClient()
+    client = httpx.AsyncClient(timeout=10.0)
     res = await client.get(
         SESSIONS_ENDPOINT_TEMPL.format(event=event_id, category=category_id)
     )
@@ -130,8 +80,7 @@ async def async_get_sessions(
     sessions = res.json()
     assert len(sessions) > 0
 
-    for s in sessions:
-        yield Session.from_req(s)
+    return [Session.from_req(s) for s in sessions]
 
 
 def get_classification(task: Task) -> Classification:
@@ -143,7 +92,7 @@ def get_classification(task: Task) -> Classification:
 
 
 async def async_get_classification(task: Task) -> Classification:
-    client = httpx.AsyncClient()
+    client = httpx.AsyncClient(timeout=10.0)
     res = await client.get(
         CLASSIFICATION_ENDPOINT_TEMPL.format(session=task.session_id)
     )
