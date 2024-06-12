@@ -1,5 +1,6 @@
 test:
-	MOTOGP_ENV=test pytest --pyargs motogp -vv ; rm test-motogp.db test-processing.db
+	MOTOGP_ENV=test pytest --pyargs motogp -vv 
+	rm test-motogp.db test-processing.db
 
 run-inc:
 	MOTOGP_ENV=dev python ./src/motogp/consumer.py 0 inc
