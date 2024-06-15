@@ -105,10 +105,10 @@ do
     # Export Classification Data
     FILENAME="$YEAR"_"$EVENT_SHORT"_"$CATEGORY"_"$SESSION".csv
     export_classification() {
-        echo "session_id,name,pos,pts" > $FILENAME
+        echo "session_id,name,number,pos,pts" > $FILENAME
         curl -s "https://api.pulselive.motogp.com/motogp/v1/results/session/$SESSION_ID/classification?test=false" \
-        | jq '.classification | .[] | {name: .rider.full_name, pos: .position, pts: .points}' \
-        | jq -r --arg S "$SESSION_ID" '"\($S),\(.name),\(.pos),\(.pts)"' >> $FILENAME
+        | jq '.classification | .[] | {name: .rider.full_name, number: .rider.number, pos: .position, pts: .points}' \
+        | jq -r --arg S "$SESSION_ID" '"\($S),\(.name),\(.number),\(.pos),\(.pts)"' >> $FILENAME
 
         if [[ $(wc -l < $FILENAME) -eq 1 ]]
         then
