@@ -42,8 +42,7 @@ This means we are looking for the following:
 When working with the endpoints we don't use these exact values, we will be
 working with their UUID which is returned in the request.
 
-Let's start with the `season` endpoint, if we call `curl
-"https://api.pulselive.motogp.com/motogp/v1/results/seasons"`, we get:
+Let's start with the `season` endpoint, if we call `curl "https://api.pulselive.motogp.com/motogp/v1/results/seasons"`, we get:
 
 ```json
 [
