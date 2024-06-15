@@ -72,7 +72,7 @@ get_classification() {
         | jq --arg SEASON_ID "$1" --arg EVENT_ID "$2" --arg CATEGORY_ID "$3" --arg SESSION_ID "$4" '.classification | .[] | {season_id: $SEASON_ID, event_id: $EVENT_ID, category_id: $CATEGORY_ID, session_id: $SESSION_ID, name: .rider.full_name, number: .rider.number, pos: .position, pts: (.points // 0)}' \
         | jq -r '"\(.season_id),\(.event_id),\(.category_id),\(.session_id),\(.name),\(.number),\(.pos),\(.pts)"'
     )
-    if [[ $(echo $CLASSIFICATION | wc -w) -eq 1 ]]
+    if [[ $(echo $CLASSIFICATION | wc -w) -eq 0 ]]
     then
         echo "ERROR: Found no classification data!"
         exit 1
