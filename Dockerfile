@@ -1,20 +1,31 @@
-FROM python:3.11-bookworm as base
+FROM python:3.11-alpine as builder
 
 COPY . /app
+WORKDIR /app
 
-RUN apt update \
-    && apt install -y make \
+RUN apk add make wget unzip \
     && wget https://sqlite.org/2024/sqlite-tools-linux-x64-3460000.zip \
     && unzip sqlite-tools-linux-x64-3460000.zip \
-    && mv sqlite3 /bin/sqlite3 \
     && wget https://github.com/duckdb/duckdb/releases/download/v1.0.0/duckdb_cli-linux-amd64.zip \
     && unzip duckdb_cli-linux-amd64.zip \
-    && mv duckdb /bin/duckdb \
-    && pip install -r /app/requirements.txt
+    && python -m pip install wheel \
+    && python -m pip wheel --no-cache-dir --wheel-dir=/root/wheels -r requirements.txt \
+    && python -m pip wheel --no-cache-dir --wheel-dir=/root/wheels .
 
-RUN pip install wheel && pip wheel /app --wheel-dir=/svc/wheels
+FROM python:3.11-alpine as base
 
-FROM python:3.11-bookworm
-COPY --from=base /svc /svc
-WORKDIR /svc
-RUN pip install --no-index --find-links=/svc/wheels -r requirements.txt
+COPY --from=builder /root/wheels /root/wheels
+COPY --from=builder /app/src /app/src
+COPY --from=builder /app/Makefile /app/Makefile
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
+
+COPY --from=builder /app/duckdb /usr/bin/duckdb
+COPY --from=builder /app/sqlite3 /usr/bin/sqlite3
+COPY --from=builder /usr/bin/make /usr/bin/make
+
+RUN python -m pip install --no-cache --no-index /root/wheels/* 
+RUN rm -rf /root/wheels
+
+WORKDIR /app
+
+RUN make test

@@ -1,5 +1,5 @@
 test:
-	MOTOGP_ENV=test pytest --pyargs motogp -vv 
+	MOTOGP_ENV=test python -m pytest --pyargs motogp -vv 
 	rm test-motogp.db test-processing.db
 
 run-inc:
@@ -41,3 +41,6 @@ process-full:
 process-inc:
 	MOTOGP_ENV=dev python ./src/motogp/producer.py 0 inc
 	MOTOGP_ENV=dev python ./src/motogp/consumer.py 0 inc
+
+build:
+	docker build --progress=plain -t ompg .
