@@ -254,11 +254,11 @@ duckdb -s "COPY (SELECT * FROM read_csv('$DATA_LAKE_PATH/classifications/*.csv',
 duckdb -s "\
 COPY (
     SELECT *
-    FROM read_parquet('classifications.parquet')
-    LEFT JOIN read_parquet('seasons.parquet') AS seasons ON seasons.id = season_id
-    LEFT JOIN read_parquet('events.parquet') AS events ON events.id = event_id
-    LEFT JOIN read_parquet('categories.parquet') AS categories ON categories.id = category_id
-    LEFT JOIN read_parquet('sessions.parquet') AS sessions ON sessions.id = session_id
+    FROM read_parquet('out/classifications.parquet') AS classification
+    LEFT JOIN read_parquet('out/seasons.parquet') AS seasons ON seasons.id = classification.season_id
+    LEFT JOIN read_parquet('out/events.parquet') AS events ON events.id = classification.event_id
+    LEFT JOIN read_parquet('out/categories.parquet') AS categories ON categories.id = classification.category_id AND categories.event_id = classification.event_id
+    LEFT JOIN read_parquet('out/sessions.parquet') AS sessions ON sessions.id = classification.session_id
 ) TO 'out/mgp.parquet';"
 
 # CLEANUP
