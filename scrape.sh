@@ -167,7 +167,6 @@ update_tasks() {
     echo event_id,category_id > bad-event-category.csv
     echo session_id > bad-sessions.csv
 
-    # TODO: parallel these for bigger log files
     UUID_PATTERN="[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}"
     cat $LOG_FILE | grep "ERROR.* no events" | grep -oE $UUID_PATTERN >> bad-seasons.csv
     cat $LOG_FILE | grep "ERROR.* no categories" | grep -oE $UUID_PATTERN >> bad-events.csv
@@ -199,6 +198,7 @@ update_tasks() {
     sqlite3 queue.db 'DROP TABLE IF EXISTS bad_events';
     sqlite3 queue.db 'DROP TABLE IF EXISTS bad_evt_cats';
     sqlite3 queue.db 'DROP TABLE IF EXISTS bad_sessions';
+    sqlite3 queue.db 'DROP TABLE IF EXISTS last_run';
 }
 
 export -f get_events
@@ -227,7 +227,7 @@ REQUESTS=$(cat $LOG_FILE | grep INFO | wc -l)
 RPS=$((REQUESTS/DURATION))
 
 # EXPORT
-# TODO
+# TODO: use DUCKDB
 
 # CLEANUP
 mv $LOG_FILE $DATA_LAKE_PATH/logs/$(date +%s%N).log
