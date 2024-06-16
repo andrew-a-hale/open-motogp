@@ -1,5 +1,5 @@
 #!/bin/bash
-export DATA_LAKE_PATH=./data-lake
+export DATA_LAKE_PATH=./data-lake/$(date +%s%N)
 export RESULTS_FILE=results.csv
 export TASK_FILE=tasks.csv
 export LOG_FILE=scrape.log
@@ -9,8 +9,15 @@ export ERRORED_STATUS=4
 
 [ -e $LOG_FILE ] && rm $LOG_FILE 
 [ -e $RESULTS_FILE ] && rm $RESULTS_FILE
-[ ! -e $DATA_LAKE_PATH ] && mkdir $DATA_LAKE_PATH
+[ -e out ] && rm out 
+[ ! -e out ] && mkdir out 
+[ ! -e $DATA_LAKE_PATH ] && mkdir -p $DATA_LAKE_PATH
 [ ! -e $DATA_LAKE_PATH/logs ] && mkdir $DATA_LAKE_PATH/logs
+[ ! -e $DATA_LAKE_PATH/seasons ] && mkdir $DATA_LAKE_PATH/seasons
+[ ! -e $DATA_LAKE_PATH/events ] && mkdir $DATA_LAKE_PATH/events
+[ ! -e $DATA_LAKE_PATH/categories ] && mkdir $DATA_LAKE_PATH/categories
+[ ! -e $DATA_LAKE_PATH/sessions ] && mkdir $DATA_LAKE_PATH/sessions
+[ ! -e $DATA_LAKE_PATH/classifications ] && mkdir $DATA_LAKE_PATH/classifications
 
 if [[ $1 -gt 0 ]]
 then
@@ -43,7 +50,7 @@ get_seasons() {
         exit 1
     fi
 
-    printf "$SEASONS"
+    printf "$SEASONS" | tee "$DATA_LAKE_PATH/seasons/seasons.ndjson"
 }
 
 get_events() {
@@ -60,7 +67,7 @@ get_events() {
         exit 1
     fi
 
-    printf "$EVENTS"
+    printf "$EVENTS" | tee "$DATA_LAKE_PATH/events/$1.ndjson"
 }
 
 get_categories() {
@@ -78,7 +85,7 @@ get_categories() {
         exit 1
     fi
 
-    printf "$CATEGORIES"
+    printf "$CATEGORIES" | tee "$DATA_LAKE_PATH/categories/$2.ndjson"
 }
 
 get_sessions() {
@@ -96,7 +103,7 @@ get_sessions() {
         exit 1
     fi
 
-    printf "$SESSIONS"
+    printf "$SESSIONS" | tee "$DATA_LAKE_PATH/sessions/$2-$3.ndjson"
 }
 
 get_classification() {
@@ -115,51 +122,49 @@ get_classification() {
         exit 1
     fi
 
-    printf "$CLASSIFICATION" > "$DATA_LAKE_PATH/$4.csv"
+    printf "$CLASSIFICATION" > "$DATA_LAKE_PATH/classifications/$4.csv"
 }
 
 upsert_queue() {
     FILE=$1
-    setup="DROP TABLE IF EXISTS staging;"
     create="\
-PRAGMA journal_mode=WAL2;
 CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    season_id TEXT,
-    event_id TEXT,
-    category_id TEXT,
-    session_id TEXT,
+    id VARCHAR PRIMARY KEY,
+    season_id VARCHAR,
+    event_id VARCHAR,
+    category_id VARCHAR,
+    session_id VARCHAR,
     status INTEGER DEFAULT 0,
     attempt INTEGER DEFAULT 0,
     added_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_timestamp INTEGER
+    updated_timestamp TIMESTAMP 
 );"
-    load=".import --csv $FILE staging"
     insert="\
 INSERT OR IGNORE INTO tasks (id, season_id, event_id, category_id, session_id)
-SELECT session_id, season_id, event_id, category_id, session_id FROM staging;"
+SELECT last_run.session_id, last_run.season_id, last_run.event_id, last_run.category_id, last_run.session_id
+FROM read_csv_auto($FILE) AS last_run
+LEFT JOIN tasks on last_run.session_id = tasks.id
+WHERE tasks.id IS NULL;"
     
-    sqlite3 queue.db "$setup";
-    sqlite3 queue.db "$create";
-    sqlite3 queue.db "$load";
-    sqlite3 queue.db "$insert";
+    duckdb queue.db "$create";
+    duckdb queue.db "$insert";
 }
 
 get_tasks() {
-    sqlite3 -csv queue.db "SELECT season_id, event_id, category_id, session_id FROM tasks WHERE STATUS < '$COMPLETED_STATUS' LIMIT $1;"
+    duckdb -csv queue.db "SELECT season_id, event_id, category_id, session_id FROM tasks WHERE status < $COMPLETED_STATUS LIMIT $1;"
 }
 
 update_tasks() {
     # COMPLETED
     echo id > $TASK_FILE
     ls $DATA_LAKE_PATH | cut -d '.' -f1 >> $TASK_FILE
-    setup="DROP TABLE IF EXISTS last_run"
-    load=".import --csv $TASK_FILE last_run"
-    update="UPDATE tasks SET status = $COMPLETED_STATUS FROM last_run WHERE last_run.id = tasks.id;"
+    update="\
+UPDATE tasks
+SET status = $COMPLETED_STATUS, updated_timestamp = get_current_timestamp()
+FROM read_csv_auto($TASK_FILE) AS last_run
+WHERE last_run.id = tasks.id AND tasks.status <> 2;"
 
-    sqlite3 queue.db "$setup"
-    sqlite3 queue.db "$load"
-    sqlite3 queue.db "$update"
+    duckdb queue.db "$update"
 
     # ERRORED 
     echo season_id > bad-seasons.csv
@@ -173,32 +178,33 @@ update_tasks() {
     cat $LOG_FILE | grep "ERROR.* no sessions" | grep -oE $UUID_PATTERN | xargs -l2 | tr ' ' ',' >> bad-event-category.csv
     cat $LOG_FILE | grep "ERROR.* no classification" | grep -oE $UUID_PATTERN >> bad-sessions.csv
 
-    load_seasons=".import --csv bad-seasons.csv bad_seasons"
-    update="UPDATE tasks SET status = $ERRORED_STATUS FROM bad_seasons WHERE bad_seasons.season_id = tasks.season_id;"
-    sqlite3 queue.db "$load_seasons";
-    sqlite3 queue.db "$update";
+    update="\
+UPDATE tasks
+SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
+FROM read_csv_auto('bad-seasons.csv') AS bad_seasons
+WHERE bad_seasons.season_id = tasks.season_id;"
+    duckdb queue.db "$update";
 
-    load_events=".import --csv bad-events.csv bad_events"
-    update="UPDATE tasks SET status = $ERRORED_STATUS FROM bad_events WHERE bad_events.event_id = tasks.event_id;"
-    sqlite3 queue.db "$load_events";
-    sqlite3 queue.db "$update";
+    update="\
+UPDATE tasks
+SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
+FROM read_csv_auto('bad-events.csv') AS bad_events
+WHERE bad_events.event_id = tasks.event_id;"
+    duckdb queue.db "$update";
 
-    load_evt_cats=".import --csv bad-event-category.csv bad_evt_cats"
-    update="UPDATE tasks SET status = $ERRORED_STATUS FROM bad_evt_cats WHERE bad_evt_cats.event_id = tasks.event_id AND bad_evt_cats.category_id = tasks.category_id;"
-    sqlite3 queue.db "$load_evt_cats";
-    sqlite3 queue.db "$update";
+    update="\
+UPDATE tasks
+SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
+FROM read_csv_auto('bad-event-category.csv') AS bad_evt_cats
+WHERE bad_evt_cats.event_id = tasks.event_id AND bad_evt_cats.category_id = tasks.category_id;"
+    duckdb queue.db "$update";
 
-    load_sessions=".import --csv bad-sessions.csv bad_sessions"
-    update="UPDATE tasks SET status = $ERRORED_STATUS FROM bad_sessions WHERE bad_sessions.session_id = tasks.session_id;"
-    sqlite3 queue.db "$load_sessions";
-    sqlite3 queue.db "$update";
-
-    # CLEANUP
-    sqlite3 queue.db 'DROP TABLE IF EXISTS bad_seasons';
-    sqlite3 queue.db 'DROP TABLE IF EXISTS bad_events';
-    sqlite3 queue.db 'DROP TABLE IF EXISTS bad_evt_cats';
-    sqlite3 queue.db 'DROP TABLE IF EXISTS bad_sessions';
-    sqlite3 queue.db 'DROP TABLE IF EXISTS last_run';
+    update="\
+UPDATE tasks
+SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
+FROM read_csv_auto('bad-sessions.csv') AS bad_sessions
+WHERE bad_sessions.session_id = tasks.session_id;"
+    duckdb queue.db "$update";
 }
 
 export -f get_events
@@ -219,7 +225,7 @@ get_seasons | jq -r '"\(.id)"' \
 upsert_queue $TASK_FILE
 rm $TASK_FILE
 
-get_tasks $TASK_COUNT | parallel --colsep ',' get_classification 
+get_tasks $TASK_COUNT | parallel --colsep ',' get_classification
 update_tasks
 
 DURATION=$(($(date +%s) - START))
@@ -227,7 +233,33 @@ REQUESTS=$(cat $LOG_FILE | grep INFO | wc -l)
 RPS=$((REQUESTS/DURATION))
 
 # EXPORT
-# TODO: use DUCKDB
+duckdb -s "COPY (SELECT * FROM read_json_auto('$DATA_LAKE_PATH/seasons/*.ndjson')) TO 'out/seasons.parquet'"
+duckdb -s "COPY (SELECT * FROM read_json_auto('$DATA_LAKE_PATH/events/*.ndjson')) TO 'out/events.parquet'"
+duckdb -s "COPY (SELECT * FROM read_json_auto('$DATA_LAKE_PATH/categories/*.ndjson')) TO 'out/categories.parquet'"
+duckdb -s "COPY (SELECT * FROM read_json_auto('$DATA_LAKE_PATH/sessions/*.ndjson')) TO 'out/sessions.parquet'"
+
+schema="\
+{
+    'season_id': 'VARCHAR',
+    'event_id': 'VARCHAR',
+    'category_id': 'VARCHAR',
+    'session_id': 'VARCHAR',
+    'name': 'VARCHAR',
+    'number': 'INTEGER',
+    'position': 'INTEGER',
+    'points': 'INTEGER'
+}"
+duckdb -s "COPY (SELECT * FROM read_csv('$DATA_LAKE_PATH/classifications/*.csv', nullstr='null', columns=$schema)) TO 'out/classifications.parquet'"
+
+duckdb -s "\
+COPY (
+    SELECT *
+    FROM read_parquet('classifications.parquet')
+    LEFT JOIN read_parquet('seasons.parquet') AS seasons ON seasons.id = season_id
+    LEFT JOIN read_parquet('events.parquet') AS events ON events.id = event_id
+    LEFT JOIN read_parquet('categories.parquet') AS categories ON categories.id = category_id
+    LEFT JOIN read_parquet('sessions.parquet') AS sessions ON sessions.id = session_id
+) TO 'out/mgp.parquet';"
 
 # CLEANUP
 mv $LOG_FILE $DATA_LAKE_PATH/logs/$(date +%s%N).log
