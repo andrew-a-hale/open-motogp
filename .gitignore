@@ -10,3 +10,4 @@ pyenv.cfg
 .pytest_cache
 .env
 motogp.egg-info
+data-lake
