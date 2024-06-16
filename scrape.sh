@@ -253,7 +253,7 @@ duckdb -s "COPY (SELECT * FROM read_csv('$DATA_LAKE_PATH/classifications/*.csv',
 
 duckdb -s "\
 COPY (
-    SELECT *
+    SELECT seasons.year, events.name AS event_name, events.sname AS event_short_name, categories.name AS category, sessions.name AS session, classification.*
     FROM read_parquet('out/classifications.parquet') AS classification
     LEFT JOIN read_parquet('out/seasons.parquet') AS seasons ON seasons.id = classification.season_id
     LEFT JOIN read_parquet('out/events.parquet') AS events ON events.id = classification.event_id
