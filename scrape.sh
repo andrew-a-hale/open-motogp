@@ -1,5 +1,4 @@
 #!/bin/bash
-
 export DATA_LAKE_PATH=./data-lake
 export RESULTS_FILE=results.csv
 export TASK_FILE=tasks.csv
@@ -210,7 +209,6 @@ export -f upsert_queue
 export -f get_tasks
 
 START=$(date +%s)
-echo "season_id,event_id,category_id,session_id,rider_name,rider_number,position,pts" > $RESULTS_FILE
 echo "season_id,event_id,category_id,session_id" > $TASK_FILE
 
 get_seasons | jq -r '"\(.id)"' \
@@ -233,7 +231,7 @@ RPS=$((REQUESTS/DURATION))
 
 # CLEANUP
 mv $LOG_FILE $DATA_LAKE_PATH/logs/$(date +%s%N).log
-rm bad-* $RESULTS_FILE $TASK_FILE
+rm bad-* $TASK_FILE
 
 printf "$REQUESTS requests made\n"
 printf "$DURATION duration in seconds\n"

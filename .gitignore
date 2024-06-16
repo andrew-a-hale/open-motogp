@@ -7,6 +7,7 @@ lib64
 pyenv.cfg
 *.db
 *.log
+*.csv
 .pytest_cache
 .env
 motogp.egg-info
