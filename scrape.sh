@@ -1,5 +1,24 @@
 #!/bin/bash
-# TODO: Cloud Hosting
+
+# INPUTS
+if [[ $(wc -w <<< $@) -eq 0 ]]
+then 
+    printf "Error: Missing Input\n"
+    printf "Usage ./scrape.sh <max_number_of_tasks>\n"
+    exit 1
+fi
+
+# LOAD TYPE
+if [[ $1 -gt 0 ]]
+then
+    LOAD_TYPE="INCREMENTAL"
+    TASK_COUNT=$1
+else
+    LOAD_TYPE="FULL"
+    TASK_COUNT=$((2**16))
+fi
+
+printf "STARTING $LOAD_TYPE LOAD DOING UPTO $TASK_COUNT TASKS\n"
 
 # DATA LAKE PATHS
 export START_TIMESTAMP=$(date +%s%N)
@@ -39,9 +58,8 @@ get_seasons() {
     START=$(date +%s%N)
     printf "$(date --iso-8601=ns) [INFO] getting seasons\n" >> $LOG_FILE
 
-    URL=https://api.pulselive.motogp.com/motogp/v1/results/seasons
     SEASONS=$( \
-        curl -s "$URL" \
+        curl -s "https://api.pulselive.motogp.com/motogp/v1/results/seasons" \
         | jq -s -c '.[] | sort_by(-.year | tonumber)' \
         | jq -c '.[] | {year: .year, id: .id}'
     )
@@ -174,8 +192,8 @@ FROM read_csv_auto($FILE) AS last_run
 LEFT JOIN tasks on last_run.session_id = tasks.id
 WHERE tasks.id IS NULL;"
     
-    duckdb queue.db "$create";
-    duckdb queue.db "$insert";
+    duckdb $QUEUE_DB "$create";
+    duckdb $QUEUE_DB "$insert";
 
     DURATION=$((($(date +%s%N) - START) / 1000000))
     jq -cn --arg DURATION "$DURATION" '{"event": "UPSERT_QUEUE", "duration_ms": $DURATION | tonumber}' >> $METRIC_FILE
@@ -183,7 +201,7 @@ WHERE tasks.id IS NULL;"
 
 get_tasks() {
     START=$(date +%s%N)
-    duckdb -csv queue.db "SELECT season_id, event_id, category_id, session_id FROM tasks WHERE status < $COMPLETED_STATUS LIMIT $1;"
+    duckdb -csv $QUEUE_DB "SELECT season_id, event_id, category_id, session_id FROM tasks WHERE status < $COMPLETED_STATUS LIMIT $1;"
 
     DURATION=$((($(date +%s%N) - START) / 1000000))
     jq -cn --arg DURATION "$DURATION" '{"event": "GET_TASKS", "duration_ms": $DURATION | tonumber}' >> $METRIC_FILE
@@ -202,7 +220,7 @@ SET status = $COMPLETED_STATUS, updated_timestamp = get_current_timestamp()
 FROM read_csv_auto($TASK_FILE) AS last_run
 WHERE last_run.id = tasks.id AND tasks.status <> 2;"
 
-    duckdb queue.db "$update"
+    duckdb $QUEUE_DB "$update"
 
     # ERRORED 
     echo season_id > bad-seasons.csv
@@ -221,28 +239,28 @@ UPDATE tasks
 SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
 FROM read_csv_auto('bad-seasons.csv') AS bad_seasons
 WHERE bad_seasons.season_id = tasks.season_id;"
-    duckdb queue.db "$update";
+    duckdb $QUEUE_DB "$update";
 
     update="\
 UPDATE tasks
 SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
 FROM read_csv_auto('bad-events.csv') AS bad_events
 WHERE bad_events.event_id = tasks.event_id;"
-    duckdb queue.db "$update";
+    duckdb $QUEUE_DB "$update";
 
     update="\
 UPDATE tasks
 SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
 FROM read_csv_auto('bad-event-category.csv') AS bad_evt_cats
 WHERE bad_evt_cats.event_id = tasks.event_id AND bad_evt_cats.category_id = tasks.category_id;"
-    duckdb queue.db "$update";
+    duckdb $QUEUE_DB "$update";
 
     update="\
 UPDATE tasks
 SET status = $ERRORED_STATUS, updated_timestamp = get_current_timestamp()
 FROM read_csv_auto('bad-sessions.csv') AS bad_sessions
 WHERE bad_sessions.session_id = tasks.session_id;"
-    duckdb queue.db "$update";
+    duckdb $QUEUE_DB "$update";
 
     DURATION=$((($(date +%s%N) - START) / 1000000))
     jq -cn --arg DURATION "$DURATION" '{"event": "UPDATE_TASKS", "duration_ms": $DURATION | tonumber}' >> $METRIC_FILE
@@ -254,18 +272,7 @@ export -f get_categories
 export -f get_sessions
 export -f get_classification
 
-# LOAD TYPE
-if [[ $1 -gt 0 ]]
-then
-    LOAD_TYPE="INCREMENTAL"
-    TASK_COUNT=$1
-else
-    LOAD_TYPE="FULL"
-    TASK_COUNT=$((2**16))
-fi
-
 # START PROCESS
-printf "STARTING $LOAD_TYPE LOAD DOING UPTO $TASK_COUNT TASKS\n"
 OVERALL_START=$(date +%s%N)
 
 # GET TASK LIST
